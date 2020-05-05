@@ -46,7 +46,20 @@ namespace MigrateDocuments
                     }
                 }));
 
-                MigrateDocuments(leads["Data"]);
+                MigrateDocuments(leads["Data"], "Leads");
+
+                additionalFields = new JObject();
+                additionalFields.Add("af_560", true);
+
+                JObject projects = _connection.CallMethod("SearchProjects", JObject.FromObject(new
+                {
+                    transmitObject = new
+                    {
+                        AdditionalFields = additionalFields
+                    }
+                }));
+
+                MigrateDocuments(projects["Data"], "Projects");
             }
             catch (Exception ex)
             {
@@ -64,26 +77,26 @@ namespace MigrateDocuments
             Directory.CreateDirectory(_baseDirectory);
         }
 
-        static void MigrateDocuments(JToken leads)
+        static void MigrateDocuments(JToken items, string folderName)
         {
-            foreach (var lead in leads)
+            foreach (var item in items)
             {
-                Logger.LogDebug($"Downloading documents for lead '{lead.Value<string>("HID")}'");
+                Logger.LogDebug($"Downloading documents for item from folder '{folderName}' with ID '{item.Value<string>("HID")}'");
 
-                string leadDirectory = Path.Combine(_baseDirectory, lead.Value<string>("HID"));
-                Directory.CreateDirectory(leadDirectory);
+                string parentDirectory = Path.Combine(_baseDirectory, item.Value<string>("HID"));
+                Directory.CreateDirectory(parentDirectory);
 
-                var documents = GetDocuments(new Guid(lead.Value<string>("ItemGUID")));
+                var documents = GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName);
                 foreach (var documentGuid in documents)
                 {
-                    DownloadDocument(documentGuid, leadDirectory);
+                    DownloadDocument(documentGuid, parentDirectory);
                 }
             }
         }
 
-        static IEnumerable<Guid> GetDocuments(Guid leadGuid)
+        static IEnumerable<Guid> GetDocuments(Guid itemGuid, string folderName)
         {
-            return _connection.GetItemsByItemGuids($"GetLeadsByItemGuids", new Guid[] { leadGuid }, false, true)
+            return _connection.GetItemsByItemGuids($"Get{folderName}ByItemGuids", new Guid[] { itemGuid }, false, true)
                 .Single()["Relations"]
                 .Where(x => x.Value<string>("ForeignFolderName") == "Documents")
                 .Select(x => new Guid(x.Value<string>("ForeignItemGUID")))
