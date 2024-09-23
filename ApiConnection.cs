@@ -11,6 +11,12 @@ namespace MigrateDocuments
 {
     class ApiConnection
     {
+        public enum DocumentType
+        {
+            Documents,
+            Emails
+        }
+
         private readonly Connection connection;
 
         public ApiConnection(RootConfigSection config)
@@ -40,11 +46,11 @@ namespace MigrateDocuments
             }));
         }
 
-        public IEnumerable<Guid> GetDocuments(Guid itemGuid, string folderName)
+        public IEnumerable<Guid> GetDocuments(Guid itemGuid, string folderName, DocumentType documentType)
         {
             return connection.GetItemsByItemGuids($"Get{folderName}ByItemGuids", new Guid[] { itemGuid }, false, true)
                 .Single()["Relations"]
-                .Where(x => x.Value<string>("ForeignFolderName") == "Documents")
+                .Where(x => x.Value<string>("ForeignFolderName") == Enum.GetName(typeof(DocumentType), documentType))
                 .Select(x => new Guid(x.Value<string>("ForeignItemGUID")))
                 .ToArray();
         }
@@ -55,49 +61,7 @@ namespace MigrateDocuments
             string documentName = revisionInfo.Value<string>("FileAs");
             string filePath = Path.Combine(directory, documentName);
 
-            if (File.Exists(filePath))
-            {
-                Logger.LogDebug($"File '{filePath}' already exist");
-                return;
-            }
-
-            int revision = revisionInfo.Value<int>("Revision");
-
-            try
-            {
-                Logger.LogDebug($"Downloading file '{documentName}' to '{filePath}'");
-
-                using (var fileStream = File.Create(filePath))
-                {
-                    connection.DownloadFile(documentGuid, revision, fileStream);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, $"Unable to download file '{documentName}' to '{filePath}'");
-
-                if (ex is WebException || ex is IOException)
-                {
-                    Logger.LogDebug("Trying again in 15 seconds");
-                    System.Threading.Thread.Sleep(15000);
-
-                    if (File.Exists(filePath))
-                    {
-                        File.Delete(filePath);
-                    }
-
-                    DownloadDocument(documentGuid, directory);
-                }
-            }
-        }
-
-        public IEnumerable<Guid> GetEmails(Guid itemGuid, string folderName)
-        {
-            return connection.GetItemsByItemGuids($"Get{folderName}ByItemGuids", new Guid[] { itemGuid }, false, true)
-                .Single()["Relations"]
-                .Where(x => x.Value<string>("ForeignFolderName") == "Emails")
-                .Select(x => new Guid(x.Value<string>("ForeignItemGUID")))
-                .ToArray();
+            DownloadFile(documentGuid, filePath, directory);
         }
 
         public void DownloadEmail(Guid emailGuid, string directory)
@@ -105,40 +69,50 @@ namespace MigrateDocuments
             var email = SearchFolder("Emails", JObject.FromObject(new { ItemGUID = emailGuid }));
             string emailName = email.Value<JArray>("Data").First().Value<string>("FileAs");
             string emailExtension = email.Value<JArray>("Data").First().Value<string>("EmailFileExtension");
-            string filePath = Path.Combine(directory, $"{emailName}{emailExtension}");
+            string filePath = Path.Combine(directory, $"{RemoveInvalidFileNameChars(emailName)}{emailExtension}");
 
-            if (File.Exists(filePath))
+            DownloadFile(emailGuid, filePath, directory);
+        }
+
+        private void DownloadFile(Guid fileGuid, string filePath, string directory)
+        {
+            if (File.Exists(directory))
             {
-                Logger.LogDebug($"Email '{filePath}' already exists");
+                Logger.LogDebug($"File '{directory}' already exist");
                 return;
             }
 
             try
             {
-                Logger.LogDebug($"Downloading email '{emailName}' to '{filePath}'");
+                Logger.LogDebug($"Downloading file '{filePath}' to '{directory}'");
 
                 using (var fileStream = File.Create(filePath))
                 {
-                    connection.DownloadFile(emailGuid, 1, fileStream);
+                    connection.DownloadFile(fileGuid, 1, fileStream);
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, $"Unable to download email '{emailName}' to '{filePath}'");
+                Logger.LogError(ex, $"Unable to download email '{filePath}' to '{directory}'");
 
                 if (ex is WebException || ex is IOException)
                 {
                     Logger.LogDebug("Trying again in 15 seconds");
                     System.Threading.Thread.Sleep(15000);
 
-                    if (File.Exists(filePath))
+                    if (File.Exists(directory))
                     {
-                        File.Delete(filePath);
+                        File.Delete(directory);
                     }
 
-                    DownloadEmail(emailGuid, directory);
+                    DownloadFile(fileGuid, filePath, directory);
                 }
             }
+        }
+   
+        private string RemoveInvalidFileNameChars(string filename)
+        {
+            return string.Concat(filename.Split(Path.GetInvalidFileNameChars()));
         }
     }
 }

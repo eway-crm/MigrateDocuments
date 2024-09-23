@@ -7,12 +7,6 @@ namespace MigrateDocuments
 {
     class Program
     {
-        enum DocumentType
-        {
-            Documents,
-            Emails
-        }
-
         private static ApiConnection _connection;
         private static string _baseDirectory;
 
@@ -37,7 +31,7 @@ namespace MigrateDocuments
 
             string[] folders = args[0].Trim().Trim(',').Split(',');
 
-            if (!Enum.TryParse(args[1].Trim(), true, out DocumentType documentTypeToSave))
+            if (!Enum.TryParse(args[1].Trim(), true, out ApiConnection.DocumentType documentTypeToSave))
             {
                 throw new ArgumentException("Incorrect document type. Document type argument must be 'Documents' or 'Emails'");
             }
@@ -69,14 +63,7 @@ namespace MigrateDocuments
                         items = _connection.GetFolder(folderName);
                     }
 
-                    if (documentTypeToSave == DocumentType.Documents)
-                    {
-                        MigrateDocuments(items["Data"], folderName);
-                    }
-                    else if (documentTypeToSave == DocumentType.Emails)
-                    {
-                        MigrateEmails(items["Data"], folderName);
-                    }
+                    MigrateDocuments(items["Data"], folderName, documentTypeToSave);
                 }
             }
             catch (Exception ex)
@@ -96,16 +83,16 @@ namespace MigrateDocuments
             Directory.CreateDirectory(_baseDirectory);
         }
 
-        static void MigrateDocuments(JToken items, string folderName)
+        static void MigrateDocuments(JToken items, string folderName, ApiConnection.DocumentType documentType)
         {
             foreach (var item in items)
             {
-                Logger.LogDebug($"Downloading documents for item from folder '{folderName}' with name '{item.Value<string>("FileAs")}'");
+                Logger.LogDebug($"Downloading {Enum.GetName(typeof(ApiConnection.DocumentType), documentType).ToLower()} for item from folder '{folderName}' with name '{item.Value<string>("FileAs")}'");
 
                 string parentDirectory = Path.Combine(_baseDirectory, item.Value<string>("FileAs") ?? "INVALID_NAME");
                 bool parentDirectoryCreated = false;
 
-                var documents = _connection.GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName);
+                var documents = _connection.GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName, documentType);
                 foreach (var documentGuid in documents)
                 {
                     // Avoid creating empty directories
@@ -114,30 +101,16 @@ namespace MigrateDocuments
                         Directory.CreateDirectory(parentDirectory);
                         parentDirectoryCreated = true;
                     }
-                    _connection.DownloadDocument(documentGuid, parentDirectory);
-                }
-            }
-        }
 
-        static void MigrateEmails(JToken items, string folderName)
-        {
-            foreach (var item in items)
-            {
-                Logger.LogDebug($"Downloading emails for item from folder '{folderName}' with name '{item.Value<string>("FileAs")}'");
-
-                string parentDirectory = Path.Combine(_baseDirectory, item.Value<string>("FileAs") ?? "INVALID_NAME");
-                bool parentDirectoryCreated = false;
-
-                var documents = _connection.GetEmails(new Guid(item.Value<string>("ItemGUID")), folderName);
-                foreach (var documentGuid in documents)
-                {
-                    // Avoid creating empty directories
-                    if (!parentDirectoryCreated)
+                    switch (documentType)
                     {
-                        Directory.CreateDirectory(parentDirectory);
-                        parentDirectoryCreated = true;
+                        case ApiConnection.DocumentType.Documents:
+                            _connection.DownloadDocument(documentGuid, parentDirectory);
+                            break;
+                        case ApiConnection.DocumentType.Emails:
+                            _connection.DownloadEmail(documentGuid, parentDirectory);
+                            break;
                     }
-                    _connection.DownloadEmail(documentGuid, parentDirectory);
                 }
             }
         }
