@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("eWay System s.r.o.")]
 [assembly: AssemblyProduct("MigrateDocuments")]
-[assembly: AssemblyCopyright("Copyright © eWay System s.r.o. 2020")]
+[assembly: AssemblyCopyright("Copyright © eWay System s.r.o. 2024")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

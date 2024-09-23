@@ -11,9 +11,8 @@
             "preLaunchTask": "build debug",
             "program": "${workspaceFolder}/bin/Debug/net472/MigrateDocuments.exe",
             "args": [
-                "Companies",
-                "0a4ee98c-b537-45a7-9ac4-e3c01f1f5ae8",
-                "tuser"
+                "Projects",
+                "Emails",
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -26,9 +25,8 @@
             "preLaunchTask": "build release",
             "program": "${workspaceFolder}/bin/Release/net472/MigrateDocuments.exe",
             "args": [
-                "Companies",
-                "0a4ee98c-b537-45a7-9ac4-e3c01f1f5ae8",
-                "tuser"
+                "Projects",
+                "Emails",
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,

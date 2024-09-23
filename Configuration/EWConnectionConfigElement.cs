@@ -12,5 +12,8 @@ namespace MigrateDocuments.Configuration
 
         [ConfigurationProperty("password", IsRequired = true)]
         public string Password => (string)this["password"];
+
+        [ConfigurationProperty("allowBackupField", IsRequired = false)]
+        public string allowBackupField => (string)this["allowBackupField"];
     }
 }
