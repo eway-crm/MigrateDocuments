@@ -129,6 +129,19 @@ namespace MigrateDocuments
             catch (Exception ex)
             {
                 Logger.LogError(ex, $"Unable to download file '{documentName}' to '{filePath}'");
+
+                if (ex is WebException || ex is IOException)
+                {
+                    Logger.LogDebug("Trying again in 15 seconds");
+                    System.Threading.Thread.Sleep(15000);
+
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    DownloadDocument(documentGuid, directory);
+                }
             }
         }
     }
