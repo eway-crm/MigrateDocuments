@@ -1,0 +1,38 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build debug",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"build",
+				"--configuration",
+				"Debug",
+				"/property:GenerateFullPaths=true",
+				"/consoleloggerparameters:NoSummary"
+			],
+			"group": "build",
+			"presentation": {
+				"reveal": "always"
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build release",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"build",
+				"--configuration",
+				"Release",
+				"--no-self-contained"
+			],
+			"group": "build",
+			"presentation": {
+				"reveal": "always"
+			},
+			"problemMatcher": "$msCompile"
+		}
+	]
+}

@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": ".NET Launch (console) - Debug",
+            "type": "clr",
+            "request": "launch",
+            "preLaunchTask": "build debug",
+            "program": "${workspaceFolder}/bin/Debug/net472/MigrateDocuments.exe",
+            "args": [
+                "Companies",
+                "0a4ee98c-b537-45a7-9ac4-e3c01f1f5ae8",
+                "tuser"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "externalTerminal"
+        },
+        {
+            "name": ".NET Launch (console) - Release",
+            "type": "clr",
+            "request": "launch",
+            "preLaunchTask": "build release",
+            "program": "${workspaceFolder}/bin/Release/net472/MigrateDocuments.exe",
+            "args": [
+                "Companies",
+                "0a4ee98c-b537-45a7-9ac4-e3c01f1f5ae8",
+                "tuser"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "externalTerminal"
+        }
+    ]
+}
