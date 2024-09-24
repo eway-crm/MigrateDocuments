@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Linq;
-using System.Text;
+﻿using System.Configuration;
+using System.Reflection;
 
 namespace MigrateDocuments.Configuration
 {
@@ -10,5 +7,7 @@ namespace MigrateDocuments.Configuration
     {
         [ConfigurationProperty("Connection", IsRequired = true)]
         public EWConnectionConfigElement Connection => (EWConnectionConfigElement)this["Connection"];
+        public System.Version AssemblyVersion => Assembly.GetExecutingAssembly().GetName().Version;
+        public string AssemblyName => Assembly.GetExecutingAssembly().GetName().Name;
     }
 }

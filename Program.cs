@@ -1,18 +1,13 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Net;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MigrateDocuments
 {
     class Program
     {
-        private static eWayCRM.API.Connection _connection;
+        private static ApiConnection _connection;
         private static string _baseDirectory;
 
         public static string AssemblyDirectory
@@ -26,121 +21,96 @@ namespace MigrateDocuments
             }
         }
 
+        // Valid call example - MigrateDocuments.exe "Projects,Leads" "Emails"
         static void Main(string[] args)
         {
+            if (args.Length != 2)
+            {
+                throw new ArgumentException($"Incorrect number of arguments. Expected 2, received {args.Length}");
+            }
+
+            string[] folders = args[0].Trim().Trim(',').Split(',');
+
+            if (!Enum.TryParse(args[1].Trim(), true, out ApiConnection.DocumentType documentTypeToSave))
+            {
+                throw new ArgumentException("Incorrect document type. Document type argument must be 'Documents' or 'Emails'");
+            }
+
             try
             {
-                CreateBaseDirectory();
+                _connection = new ApiConnection(Config.Instance);
 
-                _connection = new eWayCRM.API.Connection(Config.Instance.Connection.Url, Config.Instance.Connection.UserName, Config.Instance.Connection.Password);
-                _connection.EnsureLogin();
-
-                JObject additionalFields = new JObject();
-                additionalFields.Add("af_559", true);
-
-                JObject leads = _connection.CallMethod("SearchLeads", JObject.FromObject(new
+                foreach (var folderName in folders)
                 {
-                    transmitObject = new
+                    CreateBaseDirectory(folderName);
+
+                    JObject items;
+
+                    if (!string.IsNullOrEmpty(Config.Instance.Connection.allowBackupField))
                     {
-                        AdditionalFields = additionalFields
+                        JObject additionalFields = new JObject
+                        {
+                            { Config.Instance.Connection.allowBackupField, true }
+                        };
+
+                        items = _connection.SearchFolder(folderName, JObject.FromObject(new
+                        {
+                            AdditionalFields = additionalFields
+                        }));
                     }
-                }));
-
-                MigrateDocuments(leads["Data"], "Leads");
-
-                additionalFields = new JObject();
-                additionalFields.Add("af_560", true);
-
-                JObject projects = _connection.CallMethod("SearchProjects", JObject.FromObject(new
-                {
-                    transmitObject = new
+                    else
                     {
-                        AdditionalFields = additionalFields
+                        items = _connection.GetFolder(folderName);
                     }
-                }));
 
-                MigrateDocuments(projects["Data"], "Projects");
+                    MigrateDocuments(items["Data"], folderName, documentTypeToSave);
+                }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
+                throw;
             }
 
             Logger.LogDebug("Done.");
             Console.ReadLine();
         }
 
-        static void CreateBaseDirectory()
+        static void CreateBaseDirectory(string name)
         {
-            _baseDirectory = Path.Combine(AssemblyDirectory, "Documents");
+            _baseDirectory = Path.Combine(AssemblyDirectory, name);
 
             Directory.CreateDirectory(_baseDirectory);
         }
 
-        static void MigrateDocuments(JToken items, string folderName)
+        static void MigrateDocuments(JToken items, string folderName, ApiConnection.DocumentType documentType)
         {
             foreach (var item in items)
             {
-                Logger.LogDebug($"Downloading documents for item from folder '{folderName}' with ID '{item.Value<string>("HID")}'");
+                Logger.LogDebug($"Downloading {Enum.GetName(typeof(ApiConnection.DocumentType), documentType).ToLower()} for item from folder '{folderName}' with name '{item.Value<string>("FileAs")}'");
 
-                string parentDirectory = Path.Combine(_baseDirectory, item.Value<string>("HID"));
-                Directory.CreateDirectory(parentDirectory);
+                string parentDirectory = Path.Combine(_baseDirectory, item.Value<string>("FileAs") ?? "INVALID_NAME");
+                bool parentDirectoryCreated = false;
 
-                var documents = GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName);
+                var documents = _connection.GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName, documentType);
                 foreach (var documentGuid in documents)
                 {
-                    DownloadDocument(documentGuid, parentDirectory);
-                }
-            }
-        }
-
-        static IEnumerable<Guid> GetDocuments(Guid itemGuid, string folderName)
-        {
-            return _connection.GetItemsByItemGuids($"Get{folderName}ByItemGuids", new Guid[] { itemGuid }, false, true)
-                .Single()["Relations"]
-                .Where(x => x.Value<string>("ForeignFolderName") == "Documents")
-                .Select(x => new Guid(x.Value<string>("ForeignItemGUID")))
-                .ToArray();
-        }
-
-        static void DownloadDocument(Guid documentGuid, string directory)
-        {
-            var revisionInfo = _connection.GetLatestRevision(documentGuid)["Datum"];
-            string documentName = revisionInfo.Value<string>("FileAs");
-            string filePath = Path.Combine(directory, documentName);
-
-            if (File.Exists(filePath))
-            {
-                Logger.LogDebug($"File '{filePath}' already exist");
-                return;
-            }
-
-            int revision = revisionInfo.Value<int>("Revision");
-
-            try
-            {
-                Logger.LogDebug($"Downloading file '{documentName}' to '{filePath}'");
-
-                using (var fileStream = File.Create(filePath))
-                {
-                    _connection.DownloadFile(documentGuid, revision, fileStream);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, $"Unable to download file '{documentName}' to '{filePath}'");
-
-                if (ex is WebException || ex is IOException)
-                {
-                    Logger.LogDebug("Trying again in 15 seconds");
-                    System.Threading.Thread.Sleep(15000);
-
-                    if (File.Exists(filePath))
+                    // Avoid creating empty directories
+                    if (!parentDirectoryCreated)
                     {
-                        File.Delete(filePath);
+                        Directory.CreateDirectory(parentDirectory);
+                        parentDirectoryCreated = true;
                     }
 
-                    DownloadDocument(documentGuid, directory);
+                    switch (documentType)
+                    {
+                        case ApiConnection.DocumentType.Documents:
+                            _connection.DownloadDocument(documentGuid, parentDirectory);
+                            break;
+                        case ApiConnection.DocumentType.Emails:
+                            _connection.DownloadEmail(documentGuid, parentDirectory);
+                            break;
+                    }
                 }
             }
         }

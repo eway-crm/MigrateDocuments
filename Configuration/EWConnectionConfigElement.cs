@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Linq;
-using System.Text;
+﻿using System.Configuration;
 
 namespace MigrateDocuments.Configuration
 {
@@ -16,5 +12,8 @@ namespace MigrateDocuments.Configuration
 
         [ConfigurationProperty("password", IsRequired = true)]
         public string Password => (string)this["password"];
+
+        [ConfigurationProperty("allowBackupField", IsRequired = false)]
+        public string allowBackupField => (string)this["allowBackupField"];
     }
 }
