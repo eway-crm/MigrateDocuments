@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using eWayCRM.API;
 using MigrateDocuments.Configuration;
+using System.Runtime.InteropServices;
 
 namespace MigrateDocuments
 {
@@ -69,16 +70,23 @@ namespace MigrateDocuments
             var email = SearchFolder("Emails", JObject.FromObject(new { ItemGUID = emailGuid }));
             string emailName = email.Value<JArray>("Data").First().Value<string>("FileAs");
             string emailExtension = email.Value<JArray>("Data").First().Value<string>("EmailFileExtension");
-            string filePath = Path.Combine(directory, $"{RemoveInvalidFileNameChars(emailName)}{emailExtension}");
+            string[] emailGuidParts = email.Value<JArray>("Data").First().Value<string>("ItemGUID").Split('-');
+            string filePath = Path.Combine(directory, $"{FileHelper.RemoveInvalidFileNameChars($"{emailName} ({emailGuidParts[0]})" ?? "INVALID_NAME").Trim()}{emailExtension}");
 
             DownloadFile(emailGuid, filePath, directory);
         }
 
         private void DownloadFile(Guid fileGuid, string filePath, string directory)
         {
-            if (File.Exists(directory))
+            // Avoid hitting Windows max path length limit
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                Logger.LogDebug($"File '{directory}' already exist");
+                filePath = FileHelper.TrimPathLength(filePath, 260);
+            }
+
+            if (File.Exists(filePath))
+            {
+                Logger.LogDebug($"File '{filePath}' already exist");
                 return;
             }
 
@@ -108,11 +116,6 @@ namespace MigrateDocuments
                     DownloadFile(fileGuid, filePath, directory);
                 }
             }
-        }
-   
-        private string RemoveInvalidFileNameChars(string filename)
-        {
-            return string.Concat(filename.Split(Path.GetInvalidFileNameChars()));
         }
     }
 }
