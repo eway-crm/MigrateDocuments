@@ -46,11 +46,11 @@ namespace MigrateDocuments
 
                     JObject items;
 
-                    if (!string.IsNullOrEmpty(Config.Instance.Connection.allowBackupField))
+                    if (!string.IsNullOrEmpty(Config.Instance.Connection.AllowBackupField))
                     {
                         JObject additionalFields = new JObject
                         {
-                            { Config.Instance.Connection.allowBackupField, true }
+                            { Config.Instance.Connection.AllowBackupField, true }
                         };
 
                         items = _connection.SearchFolder(folderName, JObject.FromObject(new
@@ -78,7 +78,7 @@ namespace MigrateDocuments
 
         static void CreateBaseDirectory(string name)
         {
-            _baseDirectory = Path.Combine(AssemblyDirectory, name);
+            _baseDirectory = Path.Combine(AssemblyDirectory, FileHelper.RemoveInvalidFileNameChars(name).Trim());
 
             Directory.CreateDirectory(_baseDirectory);
         }
@@ -89,7 +89,7 @@ namespace MigrateDocuments
             {
                 Logger.LogDebug($"Downloading {Enum.GetName(typeof(ApiConnection.DocumentType), documentType).ToLower()} for item from folder '{folderName}' with name '{item.Value<string>("FileAs")}'");
 
-                string parentDirectory = Path.Combine(_baseDirectory, item.Value<string>("FileAs") ?? "INVALID_NAME");
+                string parentDirectory = Path.Combine(_baseDirectory, FileHelper.RemoveInvalidFileNameChars($"{item.Value<string>("FileAs")} ({item.Value<string>("ItemGUID").Split('-')[0]})").Trim() ?? "INVALID_NAME");
                 bool parentDirectoryCreated = false;
 
                 var documents = _connection.GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName, documentType);
