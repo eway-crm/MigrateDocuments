@@ -89,7 +89,7 @@ namespace MigrateDocuments
             {
                 Logger.LogDebug($"Downloading {Enum.GetName(typeof(ApiConnection.DocumentType), documentType).ToLower()} for item from folder '{folderName}' with name '{item.Value<string>("FileAs")}'");
 
-                string parentDirectory = Path.Combine(_baseDirectory, FileHelper.RemoveInvalidFileNameChars($"{item.Value<string>("FileAs")} ({item.Value<string>("HID")})").Trim() ?? "INVALID_NAME");
+                string parentDirectory = Path.Combine(_baseDirectory, FileHelper.RemoveInvalidFileNameChars($"{item.Value<string>("FileAs")} ({item.Value<string>("ItemGUID").Split('-')[0]})").Trim() ?? "INVALID_NAME");
                 bool parentDirectoryCreated = false;
 
                 var documents = _connection.GetDocuments(new Guid(item.Value<string>("ItemGUID")), folderName, documentType);
