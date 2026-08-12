@@ -14,18 +14,21 @@ namespace MigrateDocuments
         public static string TrimPathLength(string path, int length)
         {
             length -= 1; // Make space for terminating NUL character
+            const string Ellipsis = "...";
 
             if (path.Length <= length)
                 return path;
 
-            string extension = "";
+            string extension = Path.HasExtension(path) ? Path.GetExtension(path) : "";
 
-            if (Path.HasExtension(path))
+            // Guard: a "FileAs"/subject may contain a dot with a long tail, so
+            // Path.GetExtension can return more than fits. Fall back to a plain trim.
+            if (length - Ellipsis.Length - extension.Length < 0)
             {
-                extension = Path.GetExtension(path);
+                extension = "";
             }
 
-            path = path.Substring(0, length - 3 - extension.Length);
+            path = path.Substring(0, length - Ellipsis.Length - extension.Length);
 
             // File name cannot end in a dot on Windows
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && string.IsNullOrEmpty(extension))
