@@ -59,26 +59,27 @@ namespace MigrateDocuments
         public void DownloadDocument(Guid documentGuid, string directory)
         {
             var revisionInfo = connection.GetLatestRevision(documentGuid)["Datum"];
-            string documentName = FileHelper.TrimPathLength(Path.GetFileNameWithoutExtension(revisionInfo.Value<string>("FileAs")), 64);
+            string documentName = FileHelper.TrimPathLength(Path.GetFileNameWithoutExtension(revisionInfo.Value<string>("FileAs") ?? "NO_NAME"), 64);
             string documentExtension = Path.GetExtension(revisionInfo.Value<string>("FileAs"));
             string[] documentGuidParts = documentGuid.ToString().Split('-');
             string filePath = Path.Combine(directory, $"{documentName} ({documentGuidParts[0]}){documentExtension}");
 
-            DownloadFile(documentGuid, filePath, directory);
+            DownloadFile(documentGuid, filePath, directory, revisionInfo.Value<int>("Revision"));
         }
 
         public void DownloadEmail(Guid emailGuid, string directory)
         {
             var email = SearchFolder("Emails", JObject.FromObject(new { ItemGUID = emailGuid }));
-            string emailName = FileHelper.TrimPathLength(email.Value<JArray>("Data").First().Value<string>("FileAs"), 64);
+            string emailName = FileHelper.TrimPathLength(FileHelper.RemoveInvalidFileNameChars(email.Value<JArray>("Data").First().Value<string>("FileAs") ?? "NO_NAME"), 64);
             string emailExtension = email.Value<JArray>("Data").First().Value<string>("EmailFileExtension");
             string[] emailGuidParts = email.Value<JArray>("Data").First().Value<string>("ItemGUID").Split('-');
-            string filePath = Path.Combine(directory, $"{FileHelper.RemoveInvalidFileNameChars($"{emailName} ({emailGuidParts[0]})" ?? "INVALID_NAME").Trim()}{emailExtension}");
+            string filePath = Path.Combine(directory, $"{FileHelper.RemoveInvalidFileNameChars($"{emailName} ({emailGuidParts[0]})").Trim()}{emailExtension}");
 
-            DownloadFile(emailGuid, filePath, directory);
+            // Emails always have only one revision
+            DownloadFile(emailGuid, filePath, directory, 1);
         }
 
-        private void DownloadFile(Guid fileGuid, string filePath, string directory)
+        private void DownloadFile(Guid fileGuid, string filePath, string directory, int revision)
         {
             // Avoid hitting Windows max path length limit
             // File names are already trimmed, but the script itself migh be launched from a deeply nested directory
@@ -100,7 +101,7 @@ namespace MigrateDocuments
 
                 using (var fileStream = File.Create(filePath))
                 {
-                    connection.DownloadFile(fileGuid, 1, fileStream);
+                    connection.DownloadFile(fileGuid, revision, fileStream);
                 }
             }
             catch (Exception ex)
@@ -112,12 +113,12 @@ namespace MigrateDocuments
                     Logger.LogDebug("Trying again in 15 seconds");
                     System.Threading.Thread.Sleep(15000);
 
-                    if (File.Exists(directory))
+                    if (File.Exists(filePath))
                     {
-                        File.Delete(directory);
+                        File.Delete(filePath);
                     }
 
-                    DownloadFile(fileGuid, filePath, directory);
+                    DownloadFile(fileGuid, filePath, directory, revision);
                 }
             }
         }
